@@ -1,3 +1,5 @@
+target_sources(app PRIVATE zen_led.c)
+
 if(CONFIG_ZMK_DISPLAY)
   target_sources_ifdef(CONFIG_CUSTOM_WIDGET_BATTERY_STATUS app PRIVATE widgets/battery_status.c)
   target_sources_ifdef(CONFIG_CUSTOM_WIDGET_OUTPUT_STATUS app PRIVATE widgets/output_status.c)
