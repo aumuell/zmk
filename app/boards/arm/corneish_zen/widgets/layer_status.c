@@ -30,6 +30,8 @@ uint8_t last_perm_index = 255;
 static void set_layer_symbol(lv_obj_t *label, struct layer_status_state state) {
     const char *layer_label = state.label;
     uint8_t active_layer_index = state.index;
+    static bool prev_label_valid = false;
+    static char prev_label[10] = "";
 
 #if IS_ENABLED(CONFIG_ZMK_DISPLAY_HIDE_MOMENTARY_LAYERS)
     if (!zmk_keymap_layer_momentary(active_layer_index) && last_perm_index != active_layer_index) {
@@ -45,10 +47,16 @@ static void set_layer_symbol(lv_obj_t *label, struct layer_status_state state) {
 
         sprintf(text, " %i", active_layer_index);
 
-        lv_label_set_text(label, text);
+        if (!prev_label_valid || strncmp(text, prev_label, sizeof(prev_label)) != 0)
+            lv_label_set_text(label, text);
+        strncpy(prev_label, text, sizeof(prev_label));
     } else {
-        lv_label_set_text(label, layer_label);
+        if (!prev_label_valid || strncmp(layer_label, prev_label, sizeof(prev_label)) != 0)
+            lv_label_set_text(label, layer_label);
+        strncpy(prev_label, layer_label, sizeof(prev_label));
     }
+    prev_label[sizeof(prev_label)-1] = '\0';
+    prev_label_valid = true;
 }
 
 static void layer_status_update_cb(struct layer_status_state state) {

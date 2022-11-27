@@ -32,6 +32,14 @@ static struct peripheral_status_state get_state(const zmk_event_t *_eh) {
 
 static void set_status_symbol(lv_obj_t *icon, struct peripheral_status_state state) {
     LOG_DBG("halves connected? %s", state.connected ? "true" : "false");
+    static bool prev_connected = false;
+    static bool prev_state_valid = false;
+
+    if (prev_state_valid && prev_connected == state.connected) {
+        return;
+    }
+    prev_state_valid = true;
+    prev_connected = state.connected;
 
     lv_img_set_src(icon,
                    state.connected ? &bluetooth_connected_right : &bluetooth_disconnected_right);

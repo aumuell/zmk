@@ -80,7 +80,7 @@ lv_obj_t *zmk_display_status_screen() {
 #endif
 
     // lv_task_handler();
-    lv_refr_now(NULL);
+    //lv_refr_now(NULL);
     // display_blanking_off(display_dev);
 
     return screen;

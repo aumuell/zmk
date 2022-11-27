@@ -55,6 +55,22 @@ static struct output_status_state get_state(const zmk_event_t *_eh) {
 }
 
 static void set_status_symbol(lv_obj_t *icon, struct output_status_state state) {
+    static struct output_status_state prev = {
+        .selected_endpoint = ZMK_ENDPOINT_BLE,
+        .active_profile_connected = false,
+        .active_profile_bonded = false,
+        .active_profile_index = 255
+    };
+
+    if (state.selected_endpoint == prev.selected_endpoint
+            && state.active_profile_connected == prev.active_profile_connected
+            && state.active_profile_bonded == prev.active_profile_bonded
+            && state.active_profile_index == prev.active_profile_index) {
+        return;
+    }
+
+    prev = state;
+
     switch (state.selected_endpoint) {
     case ZMK_ENDPOINT_USB:
         lv_img_set_src(icon, &USB_connected);
