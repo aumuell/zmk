@@ -13,6 +13,7 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
 #include <zmk/display.h>
 #include "output_status.h"
+#include "../custom_status_screen.h"
 #include <zmk/event_manager.h>
 #include <zmk/events/usb_conn_state_changed.h>
 #include <zmk/events/ble_active_profile_changed.h>
@@ -70,6 +71,7 @@ static void set_status_symbol(lv_obj_t *icon, struct output_status_state state) 
     }
 
     prev = state;
+    register_widget_update();
 
     switch (state.selected_endpoint) {
     case ZMK_ENDPOINT_USB:

@@ -13,6 +13,7 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
 #include <zmk/display.h>
 #include "peripheral_status.h"
+#include "../custom_status_screen.h"
 #include <zmk/event_manager.h>
 #include <zmk/split/bluetooth/peripheral.h>
 #include <zmk/events/split_peripheral_status_changed.h>
@@ -38,6 +39,7 @@ static void set_status_symbol(lv_obj_t *icon, struct peripheral_status_state sta
     if (prev_state_valid && prev_connected == state.connected) {
         return;
     }
+    register_widget_update();
     prev_state_valid = true;
     prev_connected = state.connected;
 

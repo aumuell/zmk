@@ -13,6 +13,7 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
 #include <zmk/display.h>
 #include "battery_status.h"
+#include "../custom_status_screen.h"
 #include <src/lv_themes/lv_theme.h>
 #include <zmk/usb.h>
 #include <zmk/events/usb_conn_state_changed.h>
@@ -66,6 +67,7 @@ static void set_battery_symbol(lv_obj_t *icon, struct battery_status_state state
 
     // check if there is a change requiring an update
     if (usb_present != usb_prev || stage != stage_prev) {
+        register_widget_update();
         switch (stage) {
         case 5:
             lv_img_set_src(icon, usb_present ? &batt_100_chg : &batt_100);

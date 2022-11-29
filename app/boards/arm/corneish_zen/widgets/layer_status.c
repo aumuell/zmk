@@ -11,6 +11,7 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
 #include <zmk/display.h>
 #include "layer_status.h"
+#include "../custom_status_screen.h"
 #include <zmk/events/layer_state_changed.h>
 #include <zmk/event_manager.h>
 #include <zmk/endpoints.h>
@@ -47,13 +48,17 @@ static void set_layer_symbol(lv_obj_t *label, struct layer_status_state state) {
 
         sprintf(text, " %i", active_layer_index);
 
-        if (!prev_label_valid || strncmp(text, prev_label, sizeof(prev_label)) != 0)
+        if (!prev_label_valid || strncmp(text, prev_label, sizeof(prev_label)) != 0) {
             lv_label_set_text(label, text);
-        strncpy(prev_label, text, sizeof(prev_label));
+            strncpy(prev_label, text, sizeof(prev_label));
+            register_widget_update();
+        }
     } else {
-        if (!prev_label_valid || strncmp(layer_label, prev_label, sizeof(prev_label)) != 0)
+        if (!prev_label_valid || strncmp(layer_label, prev_label, sizeof(prev_label)) != 0) {
             lv_label_set_text(label, layer_label);
-        strncpy(prev_label, layer_label, sizeof(prev_label));
+            strncpy(prev_label, layer_label, sizeof(prev_label));
+            register_widget_update();
+        }
     }
     prev_label[sizeof(prev_label)-1] = '\0';
     prev_label_valid = true;

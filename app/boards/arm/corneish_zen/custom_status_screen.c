@@ -32,6 +32,16 @@ static struct zmk_widget_peripheral_status peripheral_status_widget;
 static struct zmk_widget_layer_status layer_status_widget;
 #endif
 
+static unsigned partial_update_count = 0;
+
+void register_widget_update() {
+    ++partial_update_count;
+    if (partial_update_count > 25) {
+        lv_obj_invalidate(lv_scr_act());
+        partial_update_count = 0;
+    }
+}
+
 lv_obj_t *zmk_display_status_screen() {
 
     lv_obj_t *screen;
@@ -80,7 +90,7 @@ lv_obj_t *zmk_display_status_screen() {
 #endif
 
     // lv_task_handler();
-    //lv_refr_now(NULL);
+    lv_refr_now(NULL);
     // display_blanking_off(display_dev);
 
     return screen;
