@@ -273,7 +273,7 @@ static int il0323_set_orientation(const struct device *dev,
 }
 
 static int il0323_set_pixel_format(const struct device *dev, const enum display_pixel_format pf) {
-    if ((pf == PIXEL_FORMAT_MONO10) || (pf == PIXEL_FORMAT_MONO10)) {
+    if ((pf == PIXEL_FORMAT_MONO10) || (pf == PIXEL_FORMAT_MONO01)) {
         return 0;
     }
 
