@@ -9,10 +9,12 @@
 #include <kernel.h>
 #include <logging/log.h>
 #include <drivers/behavior.h>
+#include <zmk/events/position_state_changed.h>
 
 LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
 struct q_item {
+    uint8_t layer;
     uint32_t position;
     struct zmk_behavior_binding binding;
     bool press : 1;
@@ -31,7 +33,9 @@ static void behavior_queue_process_next(struct k_work *work) {
         LOG_DBG("Invoking %s: 0x%02x 0x%02x", log_strdup(item.binding.behavior_dev),
                 item.binding.param1, item.binding.param2);
 
-        struct zmk_behavior_binding_event event = {.position = item.position,
+        struct zmk_behavior_binding_event event = {.source = ZMK_POSITION_STATE_CHANGE_SOURCE_LOCAL,
+                                                   .layer = item.layer,
+                                                   .position = item.position,
                                                    .timestamp = k_uptime_get()};
 
         if (item.press) {
@@ -49,9 +53,9 @@ static void behavior_queue_process_next(struct k_work *work) {
     }
 }
 
-int zmk_behavior_queue_add(uint32_t position, const struct zmk_behavior_binding binding, bool press,
+int zmk_behavior_queue_add(uint8_t layer, uint32_t position, const struct zmk_behavior_binding binding, bool press,
                            uint32_t wait) {
-    struct q_item item = {.press = press, .binding = binding, .wait = wait};
+    struct q_item item = {.layer = layer, .position = position, .press = press, .binding = binding, .wait = wait};
 
     const int ret = k_msgq_put(&zmk_behavior_queue_msgq, &item, K_NO_WAIT);
     if (ret < 0) {

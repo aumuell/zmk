@@ -29,6 +29,7 @@ struct behavior_macro_trigger_state {
     enum behavior_macro_mode mode;
     uint16_t start_index;
     uint16_t count;
+    uint8_t layer;
 };
 
 struct behavior_macro_state {
@@ -117,14 +118,14 @@ static void queue_macro(uint32_t position, const struct zmk_behavior_binding bin
         if (!handle_control_binding(&state, &bindings[i])) {
             switch (state.mode) {
             case MACRO_MODE_TAP:
-                zmk_behavior_queue_add(position, bindings[i], true, state.tap_ms);
-                zmk_behavior_queue_add(position, bindings[i], false, state.wait_ms);
+                zmk_behavior_queue_add(state.layer, position, bindings[i], true, state.tap_ms);
+                zmk_behavior_queue_add(state.layer, position, bindings[i], false, state.wait_ms);
                 break;
             case MACRO_MODE_PRESS:
-                zmk_behavior_queue_add(position, bindings[i], true, state.wait_ms);
+                zmk_behavior_queue_add(state.layer, position, bindings[i], true, state.wait_ms);
                 break;
             case MACRO_MODE_RELEASE:
-                zmk_behavior_queue_add(position, bindings[i], false, state.wait_ms);
+                zmk_behavior_queue_add(state.layer, position, bindings[i], false, state.wait_ms);
                 break;
             default:
                 LOG_ERR("Unknown macro mode: %d", state.mode);
@@ -142,6 +143,7 @@ static int on_macro_binding_pressed(struct zmk_behavior_binding *binding,
     struct behavior_macro_trigger_state trigger_state = {.mode = MACRO_MODE_TAP,
                                                          .tap_ms = cfg->default_tap_ms,
                                                          .wait_ms = cfg->default_wait_ms,
+                                                         .layer = event.layer,
                                                          .start_index = 0,
                                                          .count = state->press_bindings_count};
 

@@ -34,6 +34,7 @@ struct behavior_tap_dance_config {
 struct active_tap_dance {
     // Tap Dance Data
     int counter;
+    uint8_t source;
     uint32_t position;
     uint32_t param1;
     uint32_t param2;
@@ -59,12 +60,13 @@ static struct active_tap_dance *find_tap_dance(uint32_t position) {
     return NULL;
 }
 
-static int new_tap_dance(uint32_t position, const struct behavior_tap_dance_config *config,
+static int new_tap_dance(uint8_t source, uint32_t position, const struct behavior_tap_dance_config *config,
                          struct active_tap_dance **tap_dance) {
     for (int i = 0; i < ZMK_BHV_TAP_DANCE_MAX_HELD; i++) {
         struct active_tap_dance *const ref_dance = &active_tap_dances[i];
         if (ref_dance->position == ZMK_BHV_TAP_DANCE_POSITION_FREE) {
             ref_dance->counter = 0;
+            ref_dance->source = source;
             ref_dance->position = position;
             ref_dance->config = config;
             ref_dance->release_at = 0;
@@ -106,6 +108,7 @@ static inline int press_tap_dance_behavior(struct active_tap_dance *tap_dance, i
     tap_dance->tap_dance_decided = true;
     struct zmk_behavior_binding binding = tap_dance->config->behaviors[tap_dance->counter - 1];
     struct zmk_behavior_binding_event event = {
+        .source = tap_dance->source,
         .position = tap_dance->position,
         .timestamp = timestamp,
     };
@@ -116,6 +119,7 @@ static inline int release_tap_dance_behavior(struct active_tap_dance *tap_dance,
                                              int64_t timestamp) {
     struct zmk_behavior_binding binding = tap_dance->config->behaviors[tap_dance->counter - 1];
     struct zmk_behavior_binding_event event = {
+        .source = tap_dance->source,
         .position = tap_dance->position,
         .timestamp = timestamp,
     };
@@ -130,7 +134,7 @@ static int on_tap_dance_binding_pressed(struct zmk_behavior_binding *binding,
     struct active_tap_dance *tap_dance;
     tap_dance = find_tap_dance(event.position);
     if (tap_dance == NULL) {
-        if (new_tap_dance(event.position, cfg, &tap_dance) == -ENOMEM) {
+        if (new_tap_dance(event.source, event.position, cfg, &tap_dance) == -ENOMEM) {
             LOG_ERR("Unable to create new tap dance. Insufficient space in active_tap_dances[].");
             return ZMK_BEHAVIOR_OPAQUE;
         }

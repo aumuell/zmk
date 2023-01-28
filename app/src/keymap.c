@@ -169,6 +169,11 @@ int invoke_locally(struct zmk_behavior_binding *binding, struct zmk_behavior_bin
 
 int zmk_keymap_apply_position_state(uint8_t source, int layer, uint32_t position, bool pressed,
                                     int64_t timestamp) {
+    if (position >= ZMK_KEYMAP_LEN) {
+        LOG_ERR("Behavior lookup out of range on layer %d: position was %d", layer, position);
+        return -EINVAL;
+    }
+
     // We want to make a copy of this, since it may be converted from
     // relative to absolute before being invoked
     struct zmk_behavior_binding binding = zmk_keymap[layer][position];
@@ -177,6 +182,7 @@ int zmk_keymap_apply_position_state(uint8_t source, int layer, uint32_t position
         .layer = layer,
         .position = position,
         .timestamp = timestamp,
+        .source = source,
     };
 
     LOG_DBG("layer: %d position: %d, binding name: %s", layer, position,
@@ -229,6 +235,9 @@ int zmk_keymap_apply_position_state(uint8_t source, int layer, uint32_t position
 
 int zmk_keymap_position_state_changed(uint8_t source, uint32_t position, bool pressed,
                                       int64_t timestamp) {
+    if (position >= ZMK_KEYMAP_LEN) {
+        return -EINVAL;
+    }
     if (pressed) {
         zmk_keymap_active_behavior_layer[position] = _zmk_keymap_layer_state;
     }

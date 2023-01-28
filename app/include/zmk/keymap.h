@@ -22,6 +22,9 @@ const char *zmk_keymap_layer_label(uint8_t layer);
 
 int zmk_keymap_position_state_changed(uint8_t source, uint32_t position, bool pressed,
                                       int64_t timestamp);
+int zmk_keymap_apply_position_state(uint8_t source, int layer, uint32_t position, bool pressed,
+                                    int64_t timestamp);
+bool zmk_keymap_layer_active_with_state(uint8_t layer, zmk_keymap_layers_state_t state_to_test);
 
 #define ZMK_KEYMAP_EXTRACT_BINDING(idx, drv_inst)                                                  \
     {                                                                                              \
