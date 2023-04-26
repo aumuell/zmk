@@ -50,6 +50,9 @@ static uint8_t update_buffer[IL0323_BUFFER_SIZE];
 static bool blanking_on = true;
 static bool init_clear_done = false;
 
+static const int max_partial = 10;
+static int partial_count = max_partial;
+
 static inline int il0323_write_cmd(const struct il0323_cfg *cfg, uint8_t cmd, uint8_t *data,
                                    size_t len) {
     struct spi_buf buf = {.buf = &cmd, .len = sizeof(cmd)};
@@ -120,6 +123,14 @@ static int il0323_write(const struct device *dev, const uint16_t x, const uint16
         return -EINVAL;
     }
 
+    if (partial_count == 0 && x == 0 && y == 0 && desc->pitch == desc->width &&
+        desc->width == EPD_PANEL_WIDTH && desc->height == EPD_PANEL_HEIGHT) {
+        if (memcmp(last_buffer, buf, buf_len) == 0) {
+            LOG_ERR("Skipping update with identical contents");
+            return 0;
+        }
+    }
+
     /* Setup Partial Window and enable Partial Mode */
     bool partial = false;
     if (x != 0 || x_end_idx != EPD_PANEL_WIDTH - 1) {
@@ -128,10 +139,25 @@ static int il0323_write(const struct device *dev, const uint16_t x, const uint16
     if (y != 0 || y_end_idx != EPD_PANEL_HEIGHT - 1) {
         partial = true;
     }
-    ptl[IL0323_PTL_HRST_IDX] = x;
-    ptl[IL0323_PTL_HRED_IDX] = x_end_idx;
-    ptl[IL0323_PTL_VRST_IDX] = y;
-    ptl[IL0323_PTL_VRED_IDX] = y_end_idx;
+    if (blanking_on == true) {
+        partial = false;
+    }
+    if (partial_count >= max_partial) {
+        partial = false;
+    }
+    if (partial) {
+        partial_count++;
+        ptl[IL0323_PTL_HRST_IDX] = x;
+        ptl[IL0323_PTL_HRED_IDX] = x_end_idx;
+        ptl[IL0323_PTL_VRST_IDX] = y;
+        ptl[IL0323_PTL_VRED_IDX] = y_end_idx;
+    } else {
+        partial_count = 0;
+        ptl[IL0323_PTL_HRST_IDX] = 0;
+        ptl[IL0323_PTL_HRED_IDX] = EPD_PANEL_WIDTH - 1;
+        ptl[IL0323_PTL_VRST_IDX] = 0;
+        ptl[IL0323_PTL_VRED_IDX] = EPD_PANEL_HEIGHT - 1;
+    }
     ptl[sizeof(ptl) - 1] = IL0323_PTL_PT_SCAN;
     LOG_HEXDUMP_DBG(ptl, sizeof(ptl), "ptl");
 
