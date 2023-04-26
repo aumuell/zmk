@@ -46,6 +46,7 @@ struct il0323_cfg {
 static uint8_t il0323_pwr[] = DT_INST_PROP(0, pwr);
 
 static uint8_t last_buffer[IL0323_BUFFER_SIZE];
+static uint8_t update_buffer[IL0323_BUFFER_SIZE];
 static bool blanking_on = true;
 static bool init_clear_done = false;
 
@@ -120,6 +121,13 @@ static int il0323_write(const struct device *dev, const uint16_t x, const uint16
     }
 
     /* Setup Partial Window and enable Partial Mode */
+    bool partial = false;
+    if (x != 0 || x_end_idx != EPD_PANEL_WIDTH - 1) {
+        partial = true;
+    }
+    if (y != 0 || y_end_idx != EPD_PANEL_HEIGHT - 1) {
+        partial = true;
+    }
     ptl[IL0323_PTL_HRST_IDX] = x;
     ptl[IL0323_PTL_HRED_IDX] = x_end_idx;
     ptl[IL0323_PTL_VRST_IDX] = y;
@@ -136,15 +144,48 @@ static int il0323_write(const struct device *dev, const uint16_t x, const uint16
         return -EIO;
     }
 
-    if (il0323_write_cmd(cfg, IL0323_CMD_DTM1, last_buffer, IL0323_BUFFER_SIZE)) {
-        return -EIO;
+    const size_t linelen = desc->width / IL0323_PIXELS_PER_BYTE;
+    if (partial) {
+        uint8_t *po = update_buffer;
+        for (int yy = y; yy <= y_end_idx; ++yy) {
+            memcpy(po, last_buffer + yy * IL0323_NUMOF_PAGES + x / IL0323_PIXELS_PER_BYTE, linelen);
+            po += linelen;
+        }
+        if (il0323_write_cmd(cfg, IL0323_CMD_DTM1, update_buffer, buf_len)) {
+            return -EIO;
+        }
+    } else {
+        if (il0323_write_cmd(cfg, IL0323_CMD_DTM1, last_buffer, IL0323_BUFFER_SIZE)) {
+            return -EIO;
+        }
     }
-
-    if (il0323_write_cmd(cfg, IL0323_CMD_DTM2, (uint8_t *)buf, buf_len)) {
-        return -EIO;
+    if (partial) {
+        if (desc->width == desc->pitch) {
+            if (il0323_write_cmd(cfg, IL0323_CMD_DTM2, (uint8_t *)buf, buf_len)) {
+                return -EIO;
+            }
+        } else {
+            uint8_t *po = update_buffer;
+            const uint8_t *cbuf = buf;
+            for (int yy = 0; yy < desc->height; ++yy) {
+                memcpy(po, cbuf + yy * (desc->pitch / IL0323_PIXELS_PER_BYTE), linelen);
+                po += linelen;
+            }
+            if (il0323_write_cmd(cfg, IL0323_CMD_DTM2, update_buffer, buf_len)) {
+                return -EIO;
+            }
+        }
     }
-
-    memcpy(last_buffer, (uint8_t *)buf, IL0323_BUFFER_SIZE);
+    const uint8_t *pn = buf;
+    for (int yy = y; yy <= y_end_idx; ++yy) {
+        memcpy(last_buffer + yy * IL0323_NUMOF_PAGES + x / IL0323_PIXELS_PER_BYTE, pn, linelen);
+        pn += desc->pitch / IL0323_PIXELS_PER_BYTE;
+    }
+    if (!partial) {
+        if (il0323_write_cmd(cfg, IL0323_CMD_DTM2, last_buffer, IL0323_BUFFER_SIZE)) {
+            return -EIO;
+        }
+    }
 
     /* Update partial window and disable Partial Mode */
     if (blanking_on == false) {
@@ -170,22 +211,11 @@ static int il0323_clear_and_write_buffer(const struct device *dev, uint8_t patte
     struct display_buffer_descriptor desc = {
         .buf_size = IL0323_NUMOF_PAGES,
         .width = EPD_PANEL_WIDTH,
-        .height = 1,
+        .height = EPD_PANEL_HEIGHT,
         .pitch = EPD_PANEL_WIDTH,
     };
-    uint8_t *line;
-
-    line = k_malloc(IL0323_NUMOF_PAGES);
-    if (line == NULL) {
-        return -ENOMEM;
-    }
-
-    memset(line, pattern, IL0323_NUMOF_PAGES);
-    for (int i = 0; i < EPD_PANEL_HEIGHT; i++) {
-        il0323_write(dev, 0, i, &desc, line);
-    }
-
-    k_free(line);
+    memset(update_buffer, pattern, IL0323_BUFFER_SIZE);
+    il0323_write(dev, 0, 0, &desc, update_buffer);
 
     if (update == true) {
         if (il0323_update_display(dev)) {
