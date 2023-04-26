@@ -15,6 +15,7 @@
 #include <zephyr/sys/byteorder.h>
 
 #include "il0323_regs.h"
+#include "il0323_luts.h"
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(il0323, CONFIG_DISPLAY_LOG_LEVEL);
@@ -75,6 +76,10 @@ static inline int il0323_write_cmd(const struct il0323_cfg *cfg, uint8_t cmd, ui
     return 0;
 }
 
+static inline int il0323_write_cmd_byte(const struct il0323_cfg *cfg, uint8_t cmd, uint8_t data) {
+    return il0323_write_cmd(cfg, cmd, &data, 1);
+}
+
 static inline void il0323_busy_wait(const struct il0323_cfg *cfg) {
     int pin = gpio_pin_get_dt(&cfg->busy);
 
@@ -95,6 +100,84 @@ static int il0323_update_display(const struct device *dev) {
     }
 
     k_msleep(IL0323_BUSY_DELAY);
+
+    return 0;
+}
+
+static int il0323_load_luts(const struct device *dev, uint8_t *lut_w, uint8_t *lut_b) {
+    const struct il0323_cfg *cfg = dev->config;
+    if (il0323_write_cmd(cfg, IL0323_CMD_LUTW, lut_w, 42)) {
+        return -EIO;
+    }
+    if (il0323_write_cmd(cfg, IL0323_CMD_LUTB, lut_b, 42)) {
+        return -EIO;
+    }
+    return 0;
+}
+
+static int il0323_enable_fast_updates(const struct device *dev, bool fast) {
+    const struct il0323_cfg *cfg = dev->config;
+
+    il0323_busy_wait(cfg);
+
+    uint8_t lutopt[IL0323_LUTOPT_REG_LENGTH] = {0};
+    lutopt[IL0323_LUTOPT_GATE_IDX] = 0x00;
+    lutopt[IL0323_LUTOPT_TEMP_IDX] = IL0323_LUTOPT_SEL05_10S | IL0323_LUTOPT_SEL2030_4S8;
+    if (il0323_write_cmd(cfg, IL0323_CMD_LUTOPT, lutopt, sizeof(lutopt))) {
+        return -EIO;
+    }
+    if (il0323_write_cmd_byte(cfg, IL0323_CMD_TCON, IL0323_TCON_G2S_12 | IL0323_TCON_S2G_12)) {
+        return -EIO;
+    }
+    if (il0323_write_cmd_byte(cfg, IL0323_CMD_CPSET,
+                              IL0323_CPSET_FREQ8 | IL0323_CPSET_INT50 | IL0323_CPSET_STR4)) {
+        return -EIO;
+    }
+
+    if (fast) {
+        if (il0323_write_cmd_byte(cfg, IL0323_CMD_PSR,
+                                  IL0323_PSR_UD | IL0323_PSR_SHL | IL0323_PSR_SHD | IL0323_PSR_RST |
+                                      IL0323_PSR_LUT_REG)) {
+            return -EIO;
+        }
+        if (il0323_write_cmd_byte(cfg, IL0323_CMD_PLL, IL0323_PLL_30)) {
+            return -EIO;
+        }
+        if (il0323_write_cmd_byte(cfg, IL0323_CMD_CDI,
+                                  IL0323_CDI_CDI_5 | IL0323_CDI_DDX_ID | IL0323_CDI_DDX_KEEP |
+                                      IL0323_CDI_VBD_VCOM)) {
+            return -EIO;
+        }
+        if (il0323_write_cmd_byte(cfg, IL0323_CMD_VDCS, IL0323_VDCS_010)) { // -0.1 V
+            return -EIO;
+        }
+        if (il0323_load_luts(dev, lut_w_fast, lut_b_fast)) {
+            return -EIO;
+        }
+    } else {
+        if (il0323_write_cmd_byte(cfg, IL0323_CMD_PSR,
+                                  IL0323_PSR_UD | IL0323_PSR_SHL | IL0323_PSR_SHD |
+                                      IL0323_PSR_RST)) {
+            return -EIO;
+        }
+        if (il0323_write_cmd_byte(cfg, IL0323_CMD_PLL, IL0323_PLL_50)) {
+            return -EIO;
+        }
+        if (il0323_write_cmd_byte(cfg, IL0323_CMD_CDI,
+                                  IL0323_CDI_CDI_2 | IL0323_CDI_DDX_ID | IL0323_CDI_VBD_LUTB)) {
+            return -EIO;
+        }
+        if (il0323_write_cmd_byte(cfg, IL0323_CMD_VDCS, IL0323_VDCS_100)) { // -1 V
+            return -EIO;
+        }
+        if (il0323_load_luts(dev, lut_w_full, lut_b_full)) {
+            return -EIO;
+        }
+    }
+    uint8_t power_saving[] = {0x33};
+    if (il0323_write_cmd(cfg, IL0323_CMD_PWS, power_saving, sizeof(power_saving))) {
+        return -EIO;
+    }
 
     return 0;
 }
@@ -160,6 +243,10 @@ static int il0323_write(const struct device *dev, const uint16_t x, const uint16
     }
     ptl[sizeof(ptl) - 1] = IL0323_PTL_PT_SCAN;
     LOG_HEXDUMP_DBG(ptl, sizeof(ptl), "ptl");
+    if (il0323_enable_fast_updates(dev, partial)) {
+        LOG_ERR("Setting partial update mode failed, partial=%d", (int)partial);
+        return -EIO;
+    }
 
     il0323_busy_wait(cfg);
     if (il0323_write_cmd(cfg, IL0323_CMD_PIN, NULL, 0)) {
