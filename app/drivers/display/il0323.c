@@ -143,11 +143,19 @@ static int il0323_enable_fast_updates(const struct device *dev, bool fast) {
         if (il0323_write_cmd_byte(cfg, IL0323_CMD_PLL, IL0323_PLL_30)) {
             return -EIO;
         }
+#if IS_ENABLED(CONFIG_IL0323_INVERT)
+        if (il0323_write_cmd_byte(cfg, IL0323_CMD_CDI,
+                                  IL0323_CDI_CDI_5 | IL0323_CDI_DDX_INV | IL0323_CDI_DDX_KEEP |
+                                      IL0323_CDI_VBD_VCOM)) {
+            return -EIO;
+        }
+#else
         if (il0323_write_cmd_byte(cfg, IL0323_CMD_CDI,
                                   IL0323_CDI_CDI_5 | IL0323_CDI_DDX_ID | IL0323_CDI_DDX_KEEP |
                                       IL0323_CDI_VBD_VCOM)) {
             return -EIO;
         }
+#endif
         if (il0323_write_cmd_byte(cfg, IL0323_CMD_VDCS, IL0323_VDCS_010)) { // -0.1 V
             return -EIO;
         }
@@ -163,10 +171,17 @@ static int il0323_enable_fast_updates(const struct device *dev, bool fast) {
         if (il0323_write_cmd_byte(cfg, IL0323_CMD_PLL, IL0323_PLL_50)) {
             return -EIO;
         }
+#if IS_ENABLED(CONFIG_IL0323_INVERT)
+        if (il0323_write_cmd_byte(cfg, IL0323_CMD_CDI,
+                                  IL0323_CDI_CDI_2 | IL0323_CDI_DDX_INV | IL0323_CDI_VBD_LUTW)) {
+            return -EIO;
+        }
+#else
         if (il0323_write_cmd_byte(cfg, IL0323_CMD_CDI,
                                   IL0323_CDI_CDI_2 | IL0323_CDI_DDX_ID | IL0323_CDI_VBD_LUTB)) {
             return -EIO;
         }
+#endif
         if (il0323_write_cmd_byte(cfg, IL0323_CMD_VDCS, IL0323_VDCS_100)) { // -1 V
             return -EIO;
         }
