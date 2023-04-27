@@ -13,3 +13,7 @@ config IL0323
 config IL0323_INVERT
        bool "Invert display"
        default n
+
+config IL0323_MAX_PARTIAL_UPDATES
+       int "Maximum number of consecutive fast partial updates"
+       default 10

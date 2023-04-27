@@ -51,7 +51,7 @@ static uint8_t update_buffer[IL0323_BUFFER_SIZE];
 static bool blanking_on = true;
 static bool init_clear_done = false;
 
-static const int max_partial = 10;
+static const int max_partial = CONFIG_IL0323_MAX_PARTIAL_UPDATES;
 static int partial_count = max_partial;
 
 static inline int il0323_write_cmd(const struct il0323_cfg *cfg, uint8_t cmd, uint8_t *data,
