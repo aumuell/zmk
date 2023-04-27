@@ -224,12 +224,11 @@ static int il0323_write(const struct device *dev, const uint16_t x, const uint16
     if (partial_count == 0 && x == 0 && y == 0 && desc->pitch == desc->width &&
         desc->width == EPD_PANEL_WIDTH && desc->height == EPD_PANEL_HEIGHT) {
         if (memcmp(last_buffer, buf, buf_len) == 0) {
-            LOG_ERR("Skipping update with identical contents");
+            LOG_DBG("Skipping update with identical contents");
             return 0;
         }
     }
 
-    /* Setup Partial Window and enable Partial Mode */
     bool partial = false;
     if (x != 0 || x_end_idx != EPD_PANEL_WIDTH - 1) {
         partial = true;
@@ -238,11 +237,22 @@ static int il0323_write(const struct device *dev, const uint16_t x, const uint16
         partial = true;
     }
     if (blanking_on == true) {
+        partial_count = max_partial;
+        partial = true;
+    } else if (partial_count >= max_partial) {
         partial = false;
     }
-    if (partial_count >= max_partial) {
-        partial = false;
+    if (il0323_enable_fast_updates(dev, partial)) {
+        LOG_ERR("Setting fast partial update mode failed, partial=%d", (int)partial);
+        return -EIO;
     }
+
+    il0323_busy_wait(cfg);
+    if (il0323_write_cmd(cfg, IL0323_CMD_PIN, NULL, 0)) {
+        return -EIO;
+    }
+
+    /* Setup Partial Window and enable Partial Mode */
     if (partial) {
         partial_count++;
         ptl[IL0323_PTL_HRST_IDX] = x;
@@ -258,16 +268,6 @@ static int il0323_write(const struct device *dev, const uint16_t x, const uint16
     }
     ptl[sizeof(ptl) - 1] = IL0323_PTL_PT_SCAN;
     LOG_HEXDUMP_DBG(ptl, sizeof(ptl), "ptl");
-    if (il0323_enable_fast_updates(dev, partial)) {
-        LOG_ERR("Setting partial update mode failed, partial=%d", (int)partial);
-        return -EIO;
-    }
-
-    il0323_busy_wait(cfg);
-    if (il0323_write_cmd(cfg, IL0323_CMD_PIN, NULL, 0)) {
-        return -EIO;
-    }
-
     if (il0323_write_cmd(cfg, IL0323_CMD_PTL, ptl, sizeof(ptl))) {
         return -EIO;
     }
